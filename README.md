@@ -93,6 +93,7 @@ The package includes a separately maintained Classic Perks script that restores 
 Additional perks use the prices defined in the included Classic Perks script.
 
 **Wunderfizz:**
+
 - Random perk for **2,500 Essence**.
 - After obtaining all available perks, players can purchase **Eternal Perks for 7,500 Essence**.
 
@@ -144,3 +145,10 @@ Field Upgrades use a fixed recharge requirement instead of becoming more expensi
 
 - **40 kills** are required for the standard recharge.
 - The required kill count does not increase after each use.
+
+---
+
+## Credits
+
+- **MeowRaK** — Cursed Reimagined mod development and gameplay modifications.
+- **Classic Perks Mod:** Created by **aspect.of.autumn** (Discord: `@aspect.of.autumn`), including classic perk pricing and Wunderfizz functionality.
