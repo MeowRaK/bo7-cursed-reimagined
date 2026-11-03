@@ -1,5 +1,5 @@
 ![Cursed Reimagined Preview](preview.png)
-# BO7 Zombies | Cursed Reimagined v4
+# BO7 Zombies | Cursed Reimagined
 
 A classic-inspired gameplay overhaul for **Call of Duty: Black Ops 7 Zombies**, designed for the **Kronos offline client**.
 
