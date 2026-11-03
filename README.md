@@ -144,4 +144,3 @@ Field Upgrades use a fixed recharge requirement instead of becoming more expensi
 
 - **40 kills** are required for the standard recharge.
 - The required kill count does not increase after each use.
-- Special temporary recharge overrides, such as supported TEDD tasks, remain available.
