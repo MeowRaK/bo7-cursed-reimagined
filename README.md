@@ -41,6 +41,7 @@ The Mystery Box has been adjusted to provide more consistent weapon progression.
 - Aether Tools are removed from the loot pool.
 - Ultra Legacy Weapons remain available through their separate loot system.
 - The mod includes experimental support for obtaining map-specific Wonder Weapons without completing their respective quests.
+- **Mystery Box Zombie Builds:** Meleeing the Mystery Box allows the weapon to retain the saved Zombie Build attachments of the player who meleed it, even if another player purchases the weapon.
 
 ### 3. Wall-Buy Changes
 
