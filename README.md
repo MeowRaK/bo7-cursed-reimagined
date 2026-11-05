@@ -146,10 +146,6 @@ Field Upgrades use a fixed recharge requirement instead of becoming more expensi
 - **40 kills** are required for the standard recharge.
 - The required kill count does not increase after each use.
 
-### 13. Mister Peeks Egg Spawn Rate
-
-- Reduced the **Mister Peeks Egg spawn chance to 5%**, making it a rarer occurrence during gameplay.
-
 ---
 
 ## Credits
