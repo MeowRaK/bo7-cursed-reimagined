@@ -1,4 +1,5 @@
 ![Cursed Reimagined Preview](previewmod.png)
+
 # BO7 Zombies | Cursed Reimagined
 
 A classic-inspired gameplay overhaul for **Call of Duty: Black Ops 7 Zombies**, designed for the **Kronos offline client**.
@@ -46,6 +47,7 @@ The Mystery Box has been adjusted to provide more consistent weapon progression.
 
 - All regular wall-buy weapons remain **Green / Uncommon rarity**.
 - Weapon rarity no longer increases as rounds progress.
+- **Classic White Chalk Outlines:** All wall-buy weapon chalk outlines remain white, recreating the classic Zombies appearance regardless of weapon rarity.
 - Purchased weapons can still be upgraded through Pack-a-Punch.
 
 ### 4. Arsenal Rework
@@ -116,7 +118,19 @@ On round 1, players can use **8 leg shots followed by a knife kill** to maximize
 
 This adjustment targets the starting 1911 and does not replace the normal damage system for other weapons.
 
-### 9. Increased Early-Round Difficulty
+### 9. Classic Starting Knife Damage
+
+The unupgraded **White/Common Knife** has been adjusted to recreate the classic BO1–BO3 Zombies melee damage progression.
+
+- **Round 1:** 1 hit to kill.
+- **Round 2:** 2 hits to kill.
+- **Rounds 3–4:** 3 hits to kill.
+- **Round 5 onward:** Damage follows the classic Zombies knife progression.
+- **No Headshot Bonus:** Knife attacks deal equal damage regardless of hit location.
+- **Equal Attack Damage:** Primary (left-click) and alternative (right-click) attacks deal identical damage.
+- The changes apply exclusively to the **White/Common Knife**. Upgraded rarities and Pack-a-Punched knives retain their normal damage.
+
+### 10. Increased Early-Round Difficulty
 
 Zombies in rounds **1–10** use the attack damage scaling normally associated with round 11.
 
@@ -124,13 +138,13 @@ This makes early rounds more dangerous and encourages players to be more careful
 
 Normal damage progression resumes from round 11 onward.
 
-### 10. No Starting GobbleGums
+### 11. No Starting GobbleGums
 
 Players begin with **0 preloaded GobbleGums**, rather than the usual 3.
 
 GobbleGums can still be acquired and used normally during the match.
 
-### 11. Classic Knife System
+### 12. Classic Knife System
 
 The classic knife system is enabled through Melee Macchiato's **Mocha Maul** functionality.
 
@@ -139,7 +153,7 @@ The classic knife system is enabled through Melee Macchiato's **Mocha Maul** fun
 - Players can select other Melee Macchiato augments without giving up the classic knife functionality.
 - The system works independently of whether Melee Macchiato has been purchased, subject to the game's weapon exclusions.
 
-### 12. Field Upgrade Recharging
+### 13. Field Upgrade Recharging
 
 Field Upgrades use a fixed recharge requirement instead of becoming more expensive after repeated activations.
 
