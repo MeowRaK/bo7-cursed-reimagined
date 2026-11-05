@@ -13,6 +13,13 @@
 // Update (v3.3):   - Arsenal: pressing Use can briefly put a non-gun (use gesture /
 //                    hands) in getcurrentweapon(); the target is now the held
 //                    primary (getcurrentprimaryweapon fallback)
+// Update (v3.28):  - FIX: save & quit -> continue no longer removes armor (saved
+//                    armor restored by the stock function on saved-round loads)
+// Update (v3.27):  ~ Legacy Pack Mule: legacy weapons also recognised from the
+//                    box's own "islegacyweapon" purchase flag; refill test uses
+//                    weaponstartammo / weaponmaxammo directly (>= normal max)
+// Update (v3.26):  + Legacy (Ultra) box weapons always get Pack Mule ammo, without
+//                    Mule Kick; other Mule Kick augments unaffected
 // Update (v3.25):  + Box weapon knocked out with melee keeps the Zombie Build
 // Update (v3.24):  + Box: the map's Wonder Weapon list (Ray Gun, Mk 2, map Wonder
 //                    Weapon) is taken from magicbox_sat_zm when the Cursed box
@@ -169,6 +176,8 @@ function init()
     level callback::add( "on_round_end", &on_round_end_lock_wallbuys );
     level thread lock_wallbuys_green_init();
     level thread lock_magicbox_green();
+    level thread legacy_pack_mule_init();
+    level callback::add( "magicbox_purchase", &legacy_pack_mule_on_box_purchase );
     level callback::add( #"item_spawn_allowed", &veto_aether_tool_spawn );
     level callback::add( #"item_spawn_begin", &keep_build_on_box_drop );
 
@@ -231,8 +240,21 @@ function private pap_four_fallback( channel, menuitemindex )
     purchasemenu::function_93f934ea2f1c06f8( 1 );
 }
 
+// v3.28: zm_armor::zm_give_starting_armor() (the stock hook this replaces)
+// returns the SAVED armor when a save file is loaded. Always returning
+// [ 0, 0 ] made save & quit -> continue lose all armor, so a saved-round
+// load now goes through the stock function; every other spawn stays empty.
+function private loading_saved_round()
+{
+    return utility::issharedfuncdefined( #"zombie", #"is_loading_saved_round" ) && istrue( utility::callsharedfunc( #"zombie", #"is_loading_saved_round" ) );
+}
+
 function private empty_starting_armor( player )
 {
+    if ( loading_saved_round() && isdefined( player ) )
+    {
+        return player zm_armor::zm_give_starting_armor( player );
+    }
     return [ 0, 0 ];
 }
 
@@ -283,13 +305,20 @@ function private on_player_spawned( params )
         return;
     }
     self.fresh_armor_bought_this_life = 0;
-    self thread clear_spawn_armor();
+    // v3.28: a saved-round load restores the saved armor - do not clear it.
+    if ( !loading_saved_round() )
+    {
+        self thread clear_spawn_armor();
+    }
 
     // rev. C: the stock starting 1911 is built from this player's own Zombie Build.
     self arm_starting_1911_build();
 
     // v3.18: classic knife (Mocha Maul) - see section at the end.
     self thread classic_knife_on_spawn();
+
+    // v3.26: Pack Mule ammo on legacy (Ultra) box weapons - see section at the end.
+    self thread legacy_pack_mule_watch();
 }
 
 function private clear_spawn_armor()
@@ -1888,5 +1917,118 @@ function private keep_build_on_box_drop( params )
     if ( isdefined( favoriteweapon ) )
     {
         spawnoptions.weapon = favoriteweapon;
+    }
+}
+
+// ---------- v3.26: PACK MULE FOR LEGACY (ULTRA) WEAPONS ----------
+// Verified in the BO7 dump:
+//  - Pack Mule (#"z_mod_pack_mule") changes ONE value: every refill /
+//    pickup / ammo purchase asks utility::get_max_stock_ammo( weapon,
+//    has_pack_mule ), which returns weaponmaxammo() with Pack Mule and
+//    weaponstartammo() without it (gamemode flag var_1976506fada1193b).
+//    Call sites: full_ammo.gsc (Max Ammo), wallbuy.gsc, common_item_weapon /
+//    common_item_ammo (pickups, ammo), pack_a_punch.gsc, zm_laststand.gsc.
+//  - Those calls pass no weapon to the perk/augment check, so the check
+//    itself cannot be answered per weapon. Instead the result is applied
+//    per weapon: when a legacy weapon's reserve has just been refilled to
+//    the normal maximum, it is raised to the Pack Mule maximum.
+//  - Legacy weapons = the box's legacy list, level.var_d46bd3e7f2f3e08e
+//    (item entries, magicbox.gsc); their item bundles give .baseweapon.
+// Nothing else changes: Mule Kick and all its augments (including the real
+// Pack Mule, which then covers every weapon) work exactly as stock.
+
+function private legacy_pack_mule_init()
+{
+    level endon( #"game_ended" );
+    utility::flag_wait( "setup_magicbox_weapons" );
+    utility::flag_wait( "magicbox_ready" );
+    level.cursed_legacy_weapons = [];
+    if ( !isdefined( level.var_d46bd3e7f2f3e08e ) )
+    {
+        return;
+    }
+    foreach ( item_entry in level.var_d46bd3e7f2f3e08e )
+    {
+        bundle = getscriptbundle( item_entry );
+        if ( isdefined( bundle ) && isdefined( bundle.baseweapon ) )
+        {
+            level.cursed_legacy_weapons[ bundle.baseweapon ] = 1;
+        }
+    }
+}
+
+// self = player. Light check (0.25 s) that only acts on a refill: the
+// reserve went UP and landed exactly on the normal maximum - the value every
+// stock refill sets without Pack Mule. Shooting / reloading only lower the
+// reserve, so this can never refill ammo by itself.
+// v3.27: Mystery Box pickups fire callback "magicbox_purchase" (self =
+// player) with params.islegacyweapon (the box's var_c472ba9c1811f8cf flag)
+// and params.objweapon. That flag is the authoritative "legacy weapon" mark,
+// so the weapon is remembered for this player.
+function private legacy_pack_mule_on_box_purchase( params )
+{
+    if ( !supported_mode() || !isplayer( self ) || !isdefined( params ) || !istrue( params.islegacyweapon ) )
+    {
+        return;
+    }
+    if ( isdefined( params.objweapon ) && isweapon( params.objweapon ) && isdefined( params.objweapon.basename ) )
+    {
+        if ( !isdefined( self.cursed_legacy_owned ) )
+        {
+            self.cursed_legacy_owned = [];
+        }
+        self.cursed_legacy_owned[ params.objweapon.basename ] = 1;
+    }
+}
+
+function private legacy_pack_mule_is_legacy( w )
+{
+    if ( isdefined( self.cursed_legacy_owned ) && istrue( self.cursed_legacy_owned[ w.basename ] ) )
+    {
+        return true;
+    }
+    return isdefined( level.cursed_legacy_weapons ) && istrue( level.cursed_legacy_weapons[ w.basename ] );
+}
+
+// self = player. Light check (0.25 s) that only acts on a refill: the
+// reserve went UP and is at or above the normal maximum
+// (weaponstartammo - what every stock refill gives without Pack Mule) but
+// below the Pack Mule maximum (weaponmaxammo). Shooting / reloading only
+// lower the reserve, so this never adds ammo by itself.
+function private legacy_pack_mule_watch()
+{
+    self notify( #"cursed_legacy_pack_mule" );
+    self endon( #"cursed_legacy_pack_mule" );
+    self endon( #"disconnect" );
+    level endon( #"game_ended" );
+    self.cursed_pm_last = [];
+    while ( supported_mode() )
+    {
+        wait 0.25;
+        if ( !isalive( self ) )
+        {
+            continue;
+        }
+        foreach ( w in self getweaponslistprimaries() )
+        {
+            if ( !isweapon( w ) || isnullweapon( w ) || !isdefined( w.basename ) || !self legacy_pack_mule_is_legacy( w ) )
+            {
+                continue;
+            }
+            stock = self getweaponammostock( w );
+            last = self.cursed_pm_last[ w.basename ];
+            self.cursed_pm_last[ w.basename ] = stock;
+            if ( isdefined( last ) && stock <= last )
+            {
+                continue; // no refill
+            }
+            normal_max = weaponstartammo( w );
+            pack_mule_max = weaponmaxammo( w );
+            if ( pack_mule_max > normal_max && stock >= normal_max && stock < pack_mule_max )
+            {
+                self setweaponammostock( w, pack_mule_max );
+                self.cursed_pm_last[ w.basename ] = pack_mule_max;
+            }
+        }
     }
 }
