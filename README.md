@@ -4,7 +4,7 @@
 
 A classic-inspired gameplay overhaul for **Call of Duty: Black Ops 7 Zombies**, designed for the **Kronos offline client**.
 
-Cursed Reimagined brings back elements of classic Zombies while preserving BO7's modern gameplay systems. It reworks weapon progression, Pack-a-Punch, armor, perks, melee combat, and Field Upgrades to deliver a more challenging and traditional Zombies experience.
+Cursed Reimagined brings back elements of classic Zombies while preserving BO7's modern gameplay systems. It reworks weapon progression, Pack-a-Punch, armor, perks, melee combat, Wonder Weapons, and Field Upgrades to deliver a more traditional Zombies experience.
 
 ## Supported Game Modes
 
@@ -20,10 +20,10 @@ The mod is designed specifically for these three modes and does not intentionall
 
 ### 1. Combined Pack-a-Punch & Weapon Rarity
 
-Weapon rarity now increases automatically when using Pack-a-Punch, eliminating the need to upgrade rarity separately through the Arsenal.
+Weapon rarity increases automatically when using Pack-a-Punch, removing the need to upgrade rarity separately through the Arsenal.
 
 | Weapon State | Rarity | Pack-a-Punch Cost |
-|---|---|---|
+| --- | --- | --- |
 | Starting 1911 | White / Common | — |
 | Wall-Buy & Mystery Box Weapons | Green / Uncommon | — |
 | Pack-a-Punch I | Blue / Rare | 5,000 |
@@ -47,7 +47,7 @@ The Mystery Box has been adjusted to provide more consistent weapon progression.
 
 - All regular wall-buy weapons remain **Green / Uncommon rarity**.
 - Weapon rarity no longer increases as rounds progress.
-- **Classic White Chalk Outlines:** All wall-buy weapon chalk outlines remain white, recreating the classic Zombies appearance regardless of weapon rarity.
+- **Classic White Chalk Outlines:** Wall-buy weapon outlines remain white regardless of weapon rarity, recreating the classic Zombies appearance.
 - Purchased weapons can still be upgraded through Pack-a-Punch.
 
 ### 4. Arsenal Rework
@@ -66,7 +66,7 @@ The Arsenal has been repurposed to provide Ammo Mods instead of weapon rarity up
 Players begin each match **without armor** and must purchase armor upgrades from wall-buy locations.
 
 | Armor Tier | Cost |
-|---|---:|
+| --- | --- |
 | Tier I | 2,500 |
 | Tier II | 4,000 |
 | Tier III | 10,000 |
@@ -79,7 +79,7 @@ Armor upgrades must be purchased progressively.
 The package includes a separately maintained Classic Perks script that restores BO3-inspired perk pricing, with adjustments for newer perks.
 
 | Perk | Cost |
-|---|---:|
+| --- | --- |
 | Juggernog | 2,500 |
 | Quick Revive | 1,500 |
 | Speed Cola | 3,000 |
@@ -116,11 +116,11 @@ The unupgraded White/Common 1911 has been adjusted to recreate the classic BO1 s
 
 On round 1, players can use **8 leg shots followed by a knife kill** to maximize points.
 
-This adjustment targets the starting 1911 and does not replace the normal damage system for other weapons.
+This adjustment applies only to the starting 1911 and does not affect other weapons.
 
 ### 9. Classic Starting Knife Damage
 
-The unupgraded **White/Common Knife** has been adjusted to recreate the classic BO1–BO3 Zombies melee damage progression.
+The unupgraded **White/Common Knife** has been adjusted to recreate classic BO1–BO3 Zombies melee damage progression.
 
 - **Round 1:** 1 hit to kill.
 - **Round 2:** 2 hits to kill.
@@ -128,19 +128,24 @@ The unupgraded **White/Common Knife** has been adjusted to recreate the classic 
 - **Round 5 onward:** Damage follows the classic Zombies knife progression.
 - **No Headshot Bonus:** Knife attacks deal equal damage regardless of hit location.
 - **Equal Attack Damage:** Primary (left-click) and alternative (right-click) attacks deal identical damage.
-- The changes apply exclusively to the **White/Common Knife**. Upgraded rarities and Pack-a-Punched knives retain their normal damage.
+- Changes apply exclusively to the **White/Common Knife**. Upgraded rarities and Pack-a-Punched knives retain their normal damage.
 
-### 10. Increased Early-Round Difficulty
+### 10. Infinite Wonder Weapon Damage
 
-Zombies in rounds **1–10** use the attack damage scaling normally associated with round 11.
+Map-specific Wonder Weapons deal **effectively infinite damage against normal zombies when upgraded to Pack-a-Punch III**.
 
-This makes early rounds more dangerous and encourages players to be more careful with positioning and armor.
+- **Pack-a-Punch III is required** to activate infinite damage.
+- Normal zombies can be eliminated in a single successful damaging hit, regardless of the round.
+- The effect remains active at extremely high rounds.
+- Original weapon effects, animations, and ammunition consumption are preserved.
+- Bosses, Elite enemies, and Special enemies retain their normal damage interactions.
+- **Ray Gun and Ray Gun Mark II are excluded** and retain their original damage behavior.
 
-Normal damage progression resumes from round 11 onward.
+This ensures fully upgraded map-specific Wonder Weapons remain effective throughout high-round gameplay.
 
 ### 11. No Starting GobbleGums
 
-Players begin with **0 preloaded GobbleGums**, rather than the usual 3.
+Players begin with **0 preloaded GobbleGums** instead of the usual 3.
 
 GobbleGums can still be acquired and used normally during the match.
 
@@ -159,6 +164,33 @@ Field Upgrades use a fixed recharge requirement instead of becoming more expensi
 
 - **40 kills** are required for the standard recharge.
 - The required kill count does not increase after each use.
+
+### 14. Zombie Damage Scaling
+
+Custom zombie attack damage scaling has been disabled.
+
+- The standard version no longer applies custom zombie attack damage values.
+- The BO3 Health-compatible version leaves damage handling to BO3 Health.
+- Zombie health progression, movement speed, and spawning remain unchanged by this adjustment.
+
+---
+
+## BO3 Health Compatibility
+
+A separate version of Cursed Reimagined is available for players using the **BO3 Health mod**.
+
+This version includes the same core gameplay features as the standard mod, with adjustments to armor and other systems to ensure compatibility with BO3 Health.
+
+- Adjusted armor functionality to prevent conflicts.
+- Compatible with BO3 Health's player health and Juggernog systems.
+- Custom zombie damage scaling is disabled to preserve BO3 Health's damage mechanics.
+- Retains the classic gameplay modifications wherever compatible.
+
+**Download:**
+
+[BO7 Cursed Reimagined — BO3 Health Version](https://github.com/MeowRaK/bo7-cursed-reimagined-bo3-health)
+
+**Installation:** Use `zm_cursed_reimagined_bo3c.gsc` alongside `bo3_health.gsc` instead of the standard `zm_cursed_reimagined.gsc`.
 
 ---
 
