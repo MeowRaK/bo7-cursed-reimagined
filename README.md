@@ -40,7 +40,6 @@ The Mystery Box has been adjusted to provide more consistent weapon progression.
 - Blue, Purple, and Gold regular weapon rolls are disabled.
 - Aether Tools are removed from the loot pool.
 - Ultra Legacy Weapons remain available through their separate loot system.
-- The mod includes experimental support for obtaining map-specific Wonder Weapons without completing their respective quests.
 - **Mystery Box Zombie Builds:** Meleeing the Mystery Box allows the weapon to retain the saved Zombie Build attachments of the player who meleed it, even if another player purchases the weapon.
 
 ### 3. Wall-Buy Changes
@@ -146,6 +145,10 @@ Field Upgrades use a fixed recharge requirement instead of becoming more expensi
 
 - **40 kills** are required for the standard recharge.
 - The required kill count does not increase after each use.
+
+### 13. Mister Peeks Egg Spawn Rate
+
+- Reduced the **Mister Peeks Egg spawn chance to 5%**, making it a rarer occurrence during gameplay.
 
 ---
 
