@@ -241,7 +241,6 @@ Zombie attack damage against armor now scales with rounds, making armor increasi
 
 This allows armor to absorb increasing damage at higher rounds without introducing additional scaling to the player's base health damage.
 
----
 ### 19. Enhanced Ray Gun Damage
 
 The Ray Gun now deals **2× its original damage at every Pack-a-Punch tier**, making it more effective throughout high-round gameplay.
