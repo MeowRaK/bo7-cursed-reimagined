@@ -4,7 +4,7 @@
 
 A classic-inspired gameplay overhaul for **Call of Duty: Black Ops 7 Zombies**, designed for the **Kronos offline client**.
 
-Cursed Reimagined brings back elements of classic Zombies while preserving BO7's modern gameplay systems. It reworks weapon progression, Pack-a-Punch, armor, perks, melee combat, Wonder Weapons, and Field Upgrades to deliver a more traditional Zombies experience.
+Cursed Reimagined brings back elements of classic Zombies while preserving BO7's modern gameplay systems. It reworks weapon progression, Pack-a-Punch, armor, perks, melee combat, Wonder Weapons, enemy health scaling, Power-Ups, and Field Upgrades to deliver a more traditional Zombies experience.
 
 ## Supported Game Modes
 
@@ -173,8 +173,87 @@ Custom zombie attack damage scaling has been disabled.
 - The BO3 Health-compatible version leaves damage handling to BO3 Health.
 - Zombie health progression, movement speed, and spawning remain unchanged by this adjustment.
 
----
+### 15. Enemy Health Scaling & Round-85 Cap
 
+Enemy health progression has been adjusted to maintain balanced high-round gameplay.
+
+**Uncapped Enemy Health**
+
+The following enemies have no health cap and continue scaling beyond round 85:
+
+- Zombie
+- Armored Zombie
+- Fire Zombie (Agni)
+- Ravager
+- Toxic Zombie
+- Frost Zombie
+- Rad-Hound
+- Hellhound
+- Deathspinner (Rex Infernus spiders)
+
+**Round-85 Health Cap**
+
+All other enemies, including Elites, Specials, and HVTs, stop gaining health after round 85.
+
+- Uses the **Mister Peeks Mayhem health table and round-85 cap** across all supported game modes.
+- Includes Special enemies such as **Mimics and Necropincers**.
+- Enemy health remains fixed at its round-85 value for all subsequent rounds.
+- **Bosses retain their original fixed health values** and are unaffected.
+
+### 16. Enhanced Full Power
+
+The Full Power Power-Up has been enhanced to reward players with a random Scorestreak.
+
+- Each Full Power pickup grants one randomly selected streak.
+- The reward pool contains **8 streaks**, each with an equal **12.5% chance**.
+
+| Streak Reward | Chance |
+| --- | --- |
+| Death Machine | 12.5% |
+| War Machine | 12.5% |
+| Hand Cannon | 12.5% |
+| Mangler Cannon | 12.5% |
+| M202 | 12.5% |
+| Combat Bow | 12.5% |
+| Smart Gun | 12.5% |
+| Disciple Injection | 12.5% |
+
+The reward pool is configured through `level.zfpa_pool = 4`.
+
+### 17. Enhanced Pack-a-Punch IV Wonder Weapon Damage
+
+Pack-a-Punch IV Wonder Weapons now deal **1.75× their original Pack-a-Punch IV damage (75% more damage)**.
+
+- Applies to Wonder Weapons upgraded to **Pack-a-Punch IV**.
+- Increases their damage output against enemies not affected by the infinite-damage system.
+- Original weapon effects, animations, and ammunition consumption are preserved.
+
+This provides an additional damage boost for fully upgraded Wonder Weapons, improving their effectiveness against tougher enemies in high rounds.
+
+### 18. Armor Damage Scaling
+
+Zombie attack damage against armor now scales with rounds, making armor increasingly important to manage during high-round gameplay.
+
+- **Progressive Armor Damage:** Zombies deal more damage to armor as rounds increase.
+- **Player Health Damage:** Damage dealt directly to player health remains unaffected by this scaling.
+- **Armor Progression:** Armor tiers, purchase costs, and upgrade requirements remain unchanged.
+- **BO3 Health Compatibility:** Armor damage scaling is specific to the standard version; the BO3 Health-compatible version preserves its own health and damage mechanics.
+
+This allows armor to absorb increasing damage at higher rounds without introducing additional scaling to the player's base health damage.
+
+---
+### 19. Enhanced Ray Gun Damage
+
+The Ray Gun now deals **2× its original damage at every Pack-a-Punch tier**, making it more effective throughout high-round gameplay.
+
+- **Pack-a-Punch I:** 2× original damage.
+- **Pack-a-Punch II:** 2× original damage.
+- **Pack-a-Punch III:** 2× original damage.
+- **Pack-a-Punch IV:** 2× original damage.
+- Original weapon effects, animations, and ammunition consumption remain unchanged.
+- The Ray Gun remains excluded from the infinite Wonder Weapon damage system.
+
+---
 ## BO3 Health Compatibility
 
 A separate version of Cursed Reimagined is available for players using the **BO3 Health mod**.
@@ -188,7 +267,7 @@ This version includes the same core gameplay features as the standard mod, with 
 
 **Download:**
 
-[BO7 Cursed Reimagined — BO3 Health Version](https://github.com/MeowRaK/bo7-cursed-reimagined-bo3-health)
+https://github.com/MeowRaK/bo7-cursed-reimagined-bo3-health
 
 **Installation:** Use `zm_cursed_reimagined_bo3c.gsc` alongside `bo3_health.gsc` instead of the standard `zm_cursed_reimagined.gsc`.
 
@@ -196,5 +275,7 @@ This version includes the same core gameplay features as the standard mod, with 
 
 ## Credits
 
-- **MeowRaK** — Cursed Reimagined mod development and gameplay modifications.
-- **Classic Perks Mod:** Created by **aspect.of.autumn** (Discord: `@aspect.of.autumn`), including classic perk pricing and Wunderfizz functionality.
+- **MeowRaK** — Cursed Reimagined development, gameplay modifications, feature integration, enemy health scaling adjustments, armor damage scaling, and Pack-a-Punch IV Wonder Weapon damage enhancements.
+- **aspect.of.autumn** (Discord: `@aspect.of.autumn`) — Original Classic Perks mod, including classic perk pricing and Wunderfizz functionality.
+- **@SirKazuto** — Original enemy health scaling system, modified and integrated into Cursed Reimagined.
+- **@tomwragg13** — Original Enhanced Full Power mod, providing random Scorestreak rewards.
