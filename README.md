@@ -213,9 +213,9 @@ The Full Power Power-Up has been enhanced to reward players with a random Scores
 | War Machine | 12.5% |
 | Hand Cannon | 12.5% |
 | Mangler Cannon | 12.5% |
-| M202 | 12.5% |
+| Grim Reaper | 12.5% |
 | Combat Bow | 12.5% |
-| Smart Gun | 12.5% |
+| Lockshot | 12.5% |
 | Disciple Injection | 12.5% |
 
 The reward pool is configured through `level.zfpa_pool = 4`.
