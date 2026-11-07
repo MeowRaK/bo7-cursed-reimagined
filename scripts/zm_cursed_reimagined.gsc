@@ -3,6 +3,19 @@
 // No legacy progression, rarity, Arsenal, wall-weapon, or HUD modifications.
 // SOURCE BUILD: not compiled or runtime tested; verify in an offline game.
 //
+// Update (v3.39):  + Ray Gun / Ray Gun Mark II: damage x2 at every PaP tier (I-IV)
+//                  + Map Wonder Weapons at PaP IV: damage x1.35 (v3.41) on every non-boss
+//                    enemy not already one-hit (specials, elites, HVTs)
+// Update (v3.38):  + T.E.D.D. task chests: every Aether Tool reward slot is
+//                    replaced by the same tier's Aether Crystal (count kept)
+// Update (v3.37):  + PaP III+ map Wonder Weapon one-hit kill extended to armored
+//                    zombies (zombie_base_armored_light / _heavy /
+//                    _heavy_no_armor) through the stock killondamage flag:
+//                    killed outright, not just stripped of armor. All other
+//                    special enemies keep stock damage.
+// Update (v3.36):  - Death Perception "Sixth Sense": orange edge-glow indicator
+//                    (and its warning sound) removed; less damage from behind
+//                    kept
 // Update (v3.35):  + Zombie attack damage constant for the whole match: normal
 //                    zombies always use the stock round-11 tier (the tier of
 //                    rounds 11-30; stock round 31 starts the next tier), from
@@ -133,6 +146,9 @@
 #using scripts\mp\armor;
 #using scripts\mp\currency;
 #using scripts\mp\interaction;
+#using scripts\mp\loot\common_cache;
+#using scripts\mp\loot\common_item;
+#using scripts\mp\loot\common_item_database;
 #using scripts\mp\loot\common_item_weapon;
 #using scripts\mp\magicbox;
 #using scripts\mp\pack_a_punch;
@@ -187,6 +203,12 @@ function init()
     // v3.35: map Wonder Weapons one-hit normal zombies at PaP III+ (see section).
     install_ww_instakill();
 
+    // v3.39: Ray Gun / Mark II double damage at PaP I-IV (see section).
+    install_raygun_pap_double();
+
+    // v3.36: Death Perception "Sixth Sense" - no orange edge glow (see section).
+    callback::add( "zm_perk_obtained", &sixth_sense_no_glow );
+
     // rev. C: starting 1911 uses the player's own Zombie Build (see section below).
     level thread install_starting_1911_build_hook();
 
@@ -210,6 +232,8 @@ function init()
     level thread legacy_pack_mule_init();
     level callback::add( "magicbox_purchase", &legacy_pack_mule_on_box_purchase );
     level callback::add( #"item_spawn_allowed", &veto_aether_tool_spawn );
+    // v3.38: T.E.D.D. task chests: Aether Tool slots -> tier Aether Crystal.
+    level callback::add( "teddtask_complete", &tedd_rewards_no_tools );
     level callback::add( #"item_spawn_begin", &keep_build_on_box_drop );
 
     logstring( "[BO7 Cursed Fresh] Initialized Cursed-only rules" );
@@ -895,10 +919,18 @@ function private early_round_damage_tier( fixed_round_number )
     // function is idempotent (recomputes from *_base values).
     self [[ orig ]]( fixed_round_number );
     max_targets = self.var_577dec43cf1caedf;
+    stock_armor_mult = self.armor_health_damage_multiplier;
 
     // Second pass with round 11 sets all damage values to the round-11 tier.
     self [[ orig ]]( 11 );
     self.var_577dec43cf1caedf = max_targets;
+
+    // v3.40: armor damage (zm_armor: damageabsorbed *= attacker.
+    // armor_health_damage_multiplier) uses stock round scaling from round 31.
+    if ( fixed_round_number >= 31 )
+    {
+        self.armor_health_damage_multiplier = stock_armor_mult;
+    }
 }
 
 // =====================================================================
@@ -2005,6 +2037,149 @@ function private veto_aether_tool_spawn( params )
     return true; // everything else: allowed
 }
 
+// ---------- v3.38: T.E.D.D. TASK REWARDS WITHOUT AETHER TOOLS ----------
+// Verified in the BO7 dump (mp/zm/tedd_tasks.gsc, mp/zm/sat_interactable_chest.gsc,
+// mp/loot/common_cache.gsc, itemspawnlist bundles):
+//  - teddtasks::end_task() grades the task (loot_level 1 / 2 / 3), takes the
+//    reward list from get_loot_reward_list( loot_level, level.roundscale ) and
+//    fires level callback "teddtask_complete" (params.chest = task_chest
+//    struct). hide_teddtask( 0 ) then runs
+//    sat_interactable_chest::spawn_initial_chest_setup(): one cache per alive
+//    player in chest.caches, each filled in the same frame by
+//    common_cache::function_a136b84fc5c0dfab( cache, list, 9, 1 ) = engine
+//    CommonItem_SelectFromList( list, 9 ) + cache_additem() per pick.
+//  - Reward lists: zm_sat_items_trials_chest_{small,large,gold}_lvl1-4
+//    (lvl = level.roundscale). Aether Tools exist only in the gold lists, in
+//    zm_sat_items_trials_weapon_upgrade_lvlN_droplist (one weighted option of
+//    the resources_gold_set slot). No #mincount in any of the 12 lists: no
+//    guaranteed tool slot. Without the tools each weapon_upgrade list keeps
+//    one eligible item (its existing weight), the tier's Aether Crystal:
+//      lvl1: tool_2 (2), crystal (1)                -> t10_aethercrystal
+//      lvl2: tool_3 (2), crystal_2 (1)              -> t10_aethercrystal2
+//      lvl3: tool_3 (10), tool_4 (3), crystal_3 (1) -> t10_aethercrystal3
+//      lvl4: tool_4 (1), crystal_3 (1)              -> t10_aethercrystal3
+// The engine pick cannot be filtered from GSC, so right after the chest is
+// filled each Aether Tool slot is swapped for that tier's crystal - the same
+// result as picking from the tool-free weapon_upgrade list. Slot count stays
+// the same. Only T.E.D.D. chests (this callback) are touched; other users of
+// get_loot_reward_list (Hornet side Easter egg) are not.
+function private tedd_rewards_no_tools( params )
+{
+    if ( !supported_mode() || !isdefined( params ) || !isdefined( params.chest ) )
+    {
+        return;
+    }
+    level thread tedd_chest_replace_tools( params.chest, level.roundscale );
+}
+
+function private tedd_chest_replace_tools( chest, n_tier )
+{
+    level endon( #"game_ended" );
+    // Caches still on this chest belong to an earlier task: never touch them.
+    if ( isdefined( chest.caches ) )
+    {
+        foreach ( cache in chest.caches )
+        {
+            if ( isdefined( cache ) )
+            {
+                cache.cursed_tedd_checked = 1;
+            }
+        }
+    }
+    // hide_teddtask() spawns the chest ~2 s after the callback. All caches
+    // are created and filled in one frame, so the first new one = all of them.
+    for ( i = 0; i < 1200; i++ )
+    {
+        wait 0.05;
+        if ( !isdefined( chest.caches ) )
+        {
+            continue;
+        }
+        found = 0;
+        foreach ( cache in chest.caches )
+        {
+            if ( isdefined( cache ) && !istrue( cache.cursed_tedd_checked ) )
+            {
+                cache.cursed_tedd_checked = 1;
+                tedd_cache_replace_tools( cache, n_tier );
+                found = 1;
+            }
+        }
+        if ( found )
+        {
+            return;
+        }
+    }
+}
+
+function private tedd_is_aether_tool( lootid )
+{
+    if ( !isdefined( lootid ) || lootid == 0 )
+    {
+        return false;
+    }
+    foreach ( ref in [ "t10_aethertool", "t10_aethertool2", "t10_aethertool3", "t10_aethertool4" ] )
+    {
+        if ( common_item::items_getlootidfromref( ref ) === lootid )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+function private tedd_tier_crystal_ref( n_tier )
+{
+    if ( n_tier === 1 )
+    {
+        return "t10_aethercrystal";
+    }
+    if ( n_tier === 2 )
+    {
+        return "t10_aethercrystal2";
+    }
+    return "t10_aethercrystal3";
+}
+
+function private tedd_cache_replace_tools( cache, n_tier )
+{
+    if ( !isdefined( cache.contents ) )
+    {
+        return;
+    }
+    tool_slots = [];
+    foreach ( index, entry in cache.contents )
+    {
+        if ( isdefined( entry ) && tedd_is_aether_tool( entry.lootid ) )
+        {
+            tool_slots[ tool_slots.size ] = index;
+        }
+    }
+    if ( !tool_slots.size )
+    {
+        return;
+    }
+    crystal = undefined;
+    crystal_id = common_item::items_getlootidfromref( tedd_tier_crystal_ref( n_tier ) );
+    if ( isdefined( crystal_id ) )
+    {
+        crystal = common_item_database::function_db2360bc1c33f6f9( crystal_id );
+    }
+    foreach ( index in tool_slots )
+    {
+        // Same empty-slot shape the stock cache code uses.
+        cache.contents[ index ] = { #quantity:0, #lootid:0 };
+        if ( isdefined( crystal ) )
+        {
+            common_cache::cache_additem( cache, crystal );
+        }
+        else
+        {
+            logstring( "[BO7 Cursed Fresh] TEDD reward: no Aether Crystal for tier " + n_tier + "; Aether Tool slot left empty" );
+        }
+    }
+}
+
 // ---------- v3.18: CLASSIC KNIFE (MELEE MACCHIATO - MOCHA MAUL) ----------
 // Verified in the BO7 dump:
 //  - Mocha Maul is augment #"m_mod_panic_knife" ("The punch is replaced with
@@ -2366,6 +2541,7 @@ function private legacy_pack_mule_watch()
 //  - Only normal, unarmored zombies: aicategory "normal", subclass without
 //    "armored", no armor health, no damage shield. Specials, elites, HVTs and
 //    bosses keep stock damage.
+//    (v3.39: at PaP IV those, except bosses, take double damage instead.)
 //  - PaP level: pack_a_punch get_pap_level() matches the full weapon object,
 //    which sub-weapons (fireball, liquid grenade) never match, so the
 //    attacker's a_n_current_pap_level list is read by weapon family.
@@ -2374,6 +2550,8 @@ function private legacy_pack_mule_watch()
 function private install_ww_instakill()
 {
     level.cursed_ww_min_pap = 3;
+    // v3.39: PaP tier that doubles damage on non-boss enemies not one-hit.
+    level.cursed_ww_double_pap = 4;
     level.cursed_ww_family = [];
     level.cursed_ww_family[ "sat_ww_firefly_zm" ] = "sat_ww_firefly";
     level.cursed_ww_family[ "sat_ww_firefly_ee_zm" ] = "sat_ww_firefly";
@@ -2389,6 +2567,13 @@ function private install_ww_instakill()
     {
         level zombie_utils::register_zombie_weapon_damage_callback( weapon_name, &ww_instakill_damage );
     }
+
+    // v3.37: armored zombies (scriptbundle/ai_subclass), killed through the
+    // stock killondamage flag.
+    level.cursed_ww_armored_subclass = [];
+    level.cursed_ww_armored_subclass[ "zombie_base_armored_light" ] = 1;
+    level.cursed_ww_armored_subclass[ "zombie_base_armored_heavy" ] = 1;
+    level.cursed_ww_armored_subclass[ "zombie_base_armored_heavy_no_armor" ] = 1;
 }
 
 function private ww_family_pap_level( player, family )
@@ -2436,11 +2621,8 @@ function private ww_instakill_damage( dmg_struct )
     {
         return -1;
     }
-    if ( !( self.aicategory === "normal" ) || issubstr( self.subclass ?? "", "armored" ) || istrue( self.damageshield ) )
-    {
-        return -1;
-    }
-    if ( isdefined( self.armorhealth ) && self.armorhealth > 0 )
+    // Scripted invulnerability (damage shield) is always respected.
+    if ( istrue( self.damageshield ) )
     {
         return -1;
     }
@@ -2453,10 +2635,139 @@ function private ww_instakill_damage( dmg_struct )
     {
         return -1;
     }
-    if ( ww_family_pap_level( attacker, family ) < level.cursed_ww_min_pap )
+    n_pap = ww_family_pap_level( attacker, family );
+    // v3.37: armored zombies (never HVT / boss variants).
+    is_armored = isdefined( self.subclass ) && isdefined( level.cursed_ww_armored_subclass[ self.subclass ] ) && !( self.aicategory === "boss" ) && !( self.aicategory === "hvt" );
+    // v3.35 rule unchanged: normal, unarmored zombies.
+    is_plain_normal = self.aicategory === "normal" && !issubstr( self.subclass ?? "", "armored" ) && !( isdefined( self.armorhealth ) && self.armorhealth > 0 );
+    if ( ( is_armored || is_plain_normal ) && n_pap >= level.cursed_ww_min_pap )
+    {
+        dmg_struct.bskipexposedhead = 1;
+        if ( is_armored )
+        {
+            // Armor-plate mitigation, shields and the max-health damage cap run
+            // after this callback in zm_damage; the stock killondamage check runs
+            // after them and sets the damage to the full remaining health, so the
+            // zombie dies instead of only losing armor. Cleared at end of frame
+            // if it somehow survived.
+            if ( !istrue( self.killondamage ) )
+            {
+                self.killondamage = 1;
+                self thread ww_killondamage_restore();
+            }
+        }
+        return int( self.health ) + 1;
+    }
+    // v3.41: PaP IV multiplies the damage by 1.35 on every other enemy
+    // (specials, elites, HVTs, normal zombies the rule above skips).
+    // Bosses keep stock damage.
+    if ( n_pap >= level.cursed_ww_double_pap && !( self.aicategory === "boss" ) )
+    {
+        return int( dmg_struct.idamage * 1.7 );
+    }
+    return -1;
+}
+
+// =====================================================================
+// v3.39: RAY GUN / RAY GUN MARK II - DOUBLE DAMAGE AT EVERY PaP TIER
+// =====================================================================
+// Verified in the BO7 dump:
+//  - br_damage zombie_agent_damage_callback order: adjustdamagerarity
+//    (rarity x PaP multiplier, zombie_damage::function_968dcf03f8aacaae)
+//    -> adjustdamagespecific (level.weapon_specific_damage_modifiers: the
+//    Ray Gun remaps impact / splash to weap_raygun level.raygun_damage_structs
+//    and does x0.1 on bosses) -> shields -> adjustdamagekillcallbacks, which
+//    ends with the per-weapon map (register_zombie_weapon_damage_callback).
+//    No stock script registers that map for these two weapons.
+//  - PaP multipliers (weaponmetadataentry ingame_zm, used when the weapon
+//    asset has no own papNdamagescale): Ray Gun sat_ww_raygun_mp 1 / 3.5 /
+//    7.5 / 11, Mark II sat_ww_raygunmark2_mp 2 / 4 / 8 / 10 (PaP I-IV).
+// So returning damage x2 here, after every stock step, doubles the final
+// damage of each PaP tier (I-IV); unpacked weapons stay stock. MOD_MELEE
+// (pistol bash) stays stock. The max-health damage cap and armor still run
+// after this callback.
+function private install_raygun_pap_double()
+{
+    level zombie_utils::register_zombie_weapon_damage_callback( "sat_ww_raygun_mp", &raygun_pap_double_damage );
+    level zombie_utils::register_zombie_weapon_damage_callback( "sat_ww_raygunmark2_mp", &raygun_pap_double_damage );
+}
+
+function private raygun_pap_double_damage( dmg_struct )
+{
+    if ( !supported_mode() )
     {
         return -1;
     }
-    dmg_struct.bskipexposedhead = 1;
-    return int( self.health ) + 1;
+    if ( !isdefined( dmg_struct.idamage ) || dmg_struct.idamage <= 0 || dmg_struct.smeansofdeath === "MOD_MELEE" || !isdefined( dmg_struct.sweapon ) )
+    {
+        return -1;
+    }
+    attacker = dmg_struct.eattacker;
+    if ( isdefined( attacker ) && !isplayer( attacker ) && isdefined( attacker.owner ) && isplayer( attacker.owner ) )
+    {
+        attacker = attacker.owner;
+    }
+    if ( !isdefined( attacker ) || !isplayer( attacker ) || !isdefined( attacker.a_n_current_pap_level ) )
+    {
+        return -1;
+    }
+    n_pap = 0;
+    foreach ( papstruct in attacker.a_n_current_pap_level )
+    {
+        if ( isdefined( papstruct ) && isweapon( papstruct.weapon ) && papstruct.weapon.basename == dmg_struct.sweapon.basename )
+        {
+            n_pap = papstruct.n_level ?? 0;
+            break;
+        }
+    }
+    if ( n_pap < 1 )
+    {
+        return -1;
+    }
+    return int( dmg_struct.idamage * 2 );
+}
+
+function private ww_killondamage_restore()
+{
+    self endon( #"death" );
+    waittillframeend();
+    if ( isdefined( self ) && isalive( self ) )
+    {
+        self.killondamage = 0;
+    }
+}
+
+// =====================================================================
+// v3.36: DEATH PERCEPTION "SIXTH SENSE" - NO ORANGE INDICATOR
+// =====================================================================
+// Verified in the BO7 dump (deathperception_augments.gsc, zm_player_damage.gsc):
+//  - The indicator is watch_behind_thread(): a per-frame zombie scan started
+//    from on_perk_get() ("zm_perk_obtained") that only drives
+//    update_sixth_sense(): omnvar "ui_edge_glow" = 16 (orange screen-edge
+//    glow) + scriptable part "sixthsense_audio" (warning sound).
+//  - The augment's real effect (less damage from zombies behind you) is a
+//    separate check in zm_player_damage.gsc that tests the augment and the
+//    attacker direction on every hit. It does not use that thread.
+//  - The thread ends on notify hash_39e453d8a791005f (only used for this,
+//    stock on_perk_lost() sends it).
+// So after every Death Perception grant the thread is ended at end of frame
+// (after the stock callback started it, whatever the callback order), and
+// the glow / sound are switched off once. No loop is added; the stock
+// per-frame scan is removed. The damage reduction is untouched.
+function private sixth_sense_no_glow( params )
+{
+    if ( !supported_mode() || !isplayer( self ) || !isdefined( params ) )
+    {
+        return;
+    }
+    if ( !( params.specialtyperk === "specialty_death_perception" ) )
+    {
+        return;
+    }
+    self endon( #"death_or_disconnect" );
+    waittillframeend();
+    self notify( #"hash_39e453d8a791005f" );
+    self.var_12c1ab119730f01b = 0;
+    self setclientomnvar( "ui_edge_glow", 0 );
+    self setscriptablepartstate( "sixthsense_audio", "off", 0 );
 }
