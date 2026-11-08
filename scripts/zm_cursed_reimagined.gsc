@@ -3,8 +3,15 @@
 // No legacy progression, rarity, Arsenal, wall-weapon, or HUD modifications.
 // SOURCE BUILD: not compiled or runtime tested; verify in an offline game.
 //
-// Update (v3.39):  + Ray Gun / Ray Gun Mark II: damage x2 at every PaP tier (I-IV)
-//                  + Map Wonder Weapons at PaP IV: damage x1.35 (v3.41) on every non-boss
+// Update (v3.43): - Armor damage scaling stops at round 51 (stock round-51
+//                    armor damage from then on; level.cursed_armor_cap_round).
+// Update (v3.42): - Armor damage follows the real round: normal zombies still
+//                    hit health at the round-11 tier, but the armor share of
+//                    each hit uses stock real-round damage (replaces v3.40,
+//                    which only restored the armored zombies' armor table).
+// Update (v3.39):  + Ray Gun / Ray Gun Mark II: damage x2 at PaP I-III, x2.5 at
+//                    PaP IV (Mark II headshots at PaP IV: x2.5 x1.35)
+//                  + Map Wonder Weapons at PaP IV: damage x1.7 (v3.41) on every non-boss
 //                    enemy not already one-hit (specials, elites, HVTs)
 // Update (v3.38):  + T.E.D.D. task chests: every Aether Tool reward slot is
 //                    replaced by the same tier's Aether Crystal (count kept)
@@ -198,6 +205,8 @@ function init()
     level thread unlock_map_wonder_weapons();
 
     // NEW: early-round zombie attack damage tier (see section below).
+    // v3.43: last round armor damage keeps scaling (stock tiers: 31/41/51...).
+    level.cursed_armor_cap_round = 51;
     level thread install_early_round_damage_tier();
 
     // v3.35: map Wonder Weapons one-hit normal zombies at PaP III+ (see section).
@@ -919,17 +928,45 @@ function private early_round_damage_tier( fixed_round_number )
     // function is idempotent (recomputes from *_base values).
     self [[ orig ]]( fixed_round_number );
     max_targets = self.var_577dec43cf1caedf;
+
+    // v3.43: armor damage scaling stops at round 51 (level.cursed_armor_cap_round).
+    armor_round = fixed_round_number;
+    if ( armor_round > level.cursed_armor_cap_round )
+    {
+        armor_round = level.cursed_armor_cap_round;
+        self [[ orig ]]( armor_round );
+    }
     stock_armor_mult = self.armor_health_damage_multiplier;
+    stock_melee = self.melee_damage;
 
     // Second pass with round 11 sets all damage values to the round-11 tier.
     self [[ orig ]]( 11 );
     self.var_577dec43cf1caedf = max_targets;
 
-    // v3.40: armor damage (zm_armor: damageabsorbed *= attacker.
-    // armor_health_damage_multiplier) uses stock round scaling from round 31.
-    if ( fixed_round_number >= 31 )
+    // v3.42: armor keeps taking real-round damage while health damage stays
+    // at the round-11 tier. zm_armor::armor_damage_post() only scales the
+    // armor share of a hit (damageabsorbed *= attacker.
+    // armor_health_damage_multiplier), so folding in the stock / pinned
+    // melee damage ratio (damage cap included) gives the armor exactly the
+    // stock real-round armor damage. Stock melee tiers: x1.6666 at 11-30,
+    // x2.5 at 31, x3 at 41, x4 at 51 ... (cap 250 / 270 armored).
+    if ( fixed_round_number > 11 )
     {
-        self.armor_health_damage_multiplier = stock_armor_mult;
+        ratio = 1;
+        if ( isdefined( stock_melee ) && isdefined( self.melee_damage ) && self.melee_damage > 0 )
+        {
+            ratio = stock_melee / self.melee_damage;
+        }
+        if ( ratio < 1 )
+        {
+            ratio = 1;
+        }
+        base_mult = stock_armor_mult;
+        if ( !isdefined( base_mult ) || base_mult <= 0 )
+        {
+            base_mult = 1;
+        }
+        self.armor_health_damage_multiplier = base_mult * ratio;
     }
 }
 
@@ -2658,7 +2695,7 @@ function private ww_instakill_damage( dmg_struct )
         }
         return int( self.health ) + 1;
     }
-    // v3.41: PaP IV multiplies the damage by 1.35 on every other enemy
+    // v3.41: PaP IV multiplies the damage by 1.7 on every other enemy
     // (specials, elites, HVTs, normal zombies the rule above skips).
     // Bosses keep stock damage.
     if ( n_pap >= level.cursed_ww_double_pap && !( self.aicategory === "boss" ) )
@@ -2669,7 +2706,7 @@ function private ww_instakill_damage( dmg_struct )
 }
 
 // =====================================================================
-// v3.39: RAY GUN / RAY GUN MARK II - DOUBLE DAMAGE AT EVERY PaP TIER
+// v3.39: RAY GUN / RAY GUN MARK II - x2 AT PaP I-III, x2.5 AT PaP IV
 // =====================================================================
 // Verified in the BO7 dump:
 //  - br_damage zombie_agent_damage_callback order: adjustdamagerarity
@@ -2724,7 +2761,22 @@ function private raygun_pap_double_damage( dmg_struct )
     {
         return -1;
     }
-    return int( dmg_struct.idamage * 2 );
+    mult = 2.0;
+    // PaP IV only: impact + splash x2.5, Mark II headshot +35%.
+    if ( n_pap >= 4 )
+    {
+        mult = 2.5;
+        mod = dmg_struct.smeansofdeath;
+        if ( dmg_struct.sweapon.basename == "sat_ww_raygunmark2_mp" )
+        {
+            loc = dmg_struct.shitloc;
+            if ( mod === "MOD_HEAD_SHOT" || loc === "head" || loc === "neck" || loc === "helmet" )
+            {
+                mult = 2.5 * 1.35;
+            }
+        }
+    }
+    return int( dmg_struct.idamage * mult );
 }
 
 function private ww_killondamage_restore()
