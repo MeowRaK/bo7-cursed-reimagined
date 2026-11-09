@@ -3,6 +3,25 @@
 // No legacy progression, rarity, Arsenal, wall-weapon, or HUD modifications.
 // SOURCE BUILD: not compiled or runtime tested; verify in an offline game.
 //
+// Update (v3.51): ~ Armor damage scaling cap moved from round 51 to round 61
+//                    (level.cursed_armor_cap_round).
+// Update (v3.50): ~ Starting GobbleGum clear synced with the bo3c build: also
+//                    runs on player_spawned and for players connected before
+//                    init, and waits for begin_round_logic before clearing
+//                    (after every pre-match pack refill; pending guard).
+// Update (v3.49): ~ Built-in Turtle Shell rework. Armor only blocks back hits
+//                    (health 0) unless Jugger-Nog + Turtle Shell augment.
+//                    Armor wear from zombie back hits: x0.75 no Jugg
+//                    (level.cursed_shell_armor_mult), x0.5 Jugg
+//                    (level.cursed_shell_armor_mult_jugg). Front hits: no
+//                    armor protection. Jugg + augment: stock (front normal).
+// Update (v3.48): ~ Built-in Turtle Shell reworked. Without Jugger-Nog: back
+//                    hits go 100% to armor (no health damage) but zombie hits
+//                    wear armor at x0.75 (augment: x0.5; 50% less benefit,
+//                    level.cursed_shell_armor_mult). Front hits: normal
+//                    plate mitigation. With Jugger-Nog: stock (augment =
+//                    stock Turtle Shell).
+// Update (v3.47): + Built-in Turtle Shell on armor (replaced by v3.48).
 // Update (v3.46): ~ Mystery Box: the map Wonder Weapon now has the same
 //                    chance as the Ray Gun (map's own box Wonder Weapon list,
 //                    1/3 each with Ray Gun and Ray Gun Mk 2); the extra 10%
@@ -208,6 +227,14 @@ function init()
 
     // NEW: strip the 3 GobbleGums stock pre-loads at connect (see section below).
     level callback::add( #"player_connect", &on_player_connect_gobblegums );
+    level callback::add( #"player_spawned", &on_player_connect_gobblegums );
+    if ( isdefined( level.players ) )
+    {
+        foreach ( player in level.players )
+        {
+            player thread clear_starting_gobblegums(); // already connected before init
+        }
+    }
 
     level thread maintain_pap_and_starting_armor();
     level thread bind_armor_walls();
@@ -220,8 +247,13 @@ function init()
     level thread unlock_map_wonder_weapons();
 
     // NEW: early-round zombie attack damage tier (see section below).
-    // v3.43: last round armor damage keeps scaling (stock tiers: 31/41/51...).
-    level.cursed_armor_cap_round = 51;
+    // v3.43/v3.51: last round armor damage keeps scaling (stock tiers: 31/41/51/61...).
+    level.cursed_armor_cap_round = 61;
+    // v3.48: built-in shell armor wear from zombie back hits (no Jugger-Nog).
+    // Stock augment = 0.5. 0.70-0.80 = 40-60% less benefit than the augment.
+    level.cursed_shell_armor_mult = 0.75;
+    // v3.49: same with Jugger-Nog but no Turtle Shell augment (augment = stock 0.5).
+    level.cursed_shell_armor_mult_jugg = 0.5;
     level thread install_early_round_damage_tier();
 
     // v3.35: map Wonder Weapons one-hit normal zombies at PaP III+ (see section).
@@ -384,6 +416,9 @@ function private on_player_spawned( params )
         return;
     }
     self.fresh_armor_bought_this_life = 0;
+    // v3.47: built-in Turtle Shell (see section at the end).
+    self.callback_armor_damage_override = &cursed_shell_absorb;
+    self.callback_armor_post_damage_override = &cursed_shell_post;
     // v3.28: a saved-round load restores the saved armor - do not clear it.
     if ( !loading_saved_round() )
     {
@@ -990,7 +1025,7 @@ function private early_round_damage_tier( fixed_round_number )
     self [[ orig ]]( fixed_round_number );
     max_targets = self.var_577dec43cf1caedf;
 
-    // v3.43: armor damage scaling stops at round 51 (level.cursed_armor_cap_round).
+    // v3.43/v3.51: armor damage scaling stops at round 61 (level.cursed_armor_cap_round).
     armor_round = fixed_round_number;
     if ( armor_round > level.cursed_armor_cap_round )
     {
@@ -1076,10 +1111,16 @@ function private clear_starting_gobblegums()
     {
         return; // GobbleGums disabled for this match.
     }
-    if ( istrue( self.cursed_starting_gums_cleared ) )
+    if ( istrue( self.cursed_starting_gums_cleared ) || istrue( self.cursed_starting_gums_pending ) )
     {
         return;
     }
+    self.cursed_starting_gums_pending = 1;
+
+    // Clear only once the round logic starts: every pre-load / pack refill
+    // has happened by then, and no gum can be earned yet.
+    level utility::flag_wait( "begin_round_logic" );
+    waitframe();
     self.cursed_starting_gums_cleared = 1;
 
     // Same saved-loadout checks stock uses; restored gums are legitimate.
@@ -2889,4 +2930,86 @@ function private sixth_sense_no_glow( params )
     self.var_12c1ab119730f01b = 0;
     self setclientomnvar( "ui_edge_glow", 0 );
     self setscriptablepartstate( "sixthsense_audio", "off", 0 );
+}
+
+// -------------------- v3.49: BUILT-IN TURTLE SHELL --------------------
+// Runs inside zm_armor::armor_damage_absorbed() through the stock
+// self.callback_armor_damage_override hook. Return = armor share of the hit.
+// With Jugger-Nog the stock plate mitigation is returned unchanged, and the
+// stock Turtle Shell block after this hook still runs for augment owners.
+function private cursed_plate_mitigation( eattacker )
+{
+    switch ( self.platecarrierlevel )
+    {
+        case 1: mit = level.armormetadatabundle.var_6e36edafe33fcbbd ?? 0.45; break;
+        case 2: mit = level.armormetadatabundle.var_e1ccf0a99db550c ?? 0.58; break;
+        case 3: mit = level.armormetadatabundle.var_28630d21f2687b7b ?? 0.65; break;
+        default: return 0;
+    }
+    if ( utility::callsharedfunc( #"zombie", #"player_has_augment", #"juggernog_thicker_plates" ) )
+    {
+        mit += level.zombie_augments[ #"juggernog_thicker_plates" ].var_fcd4c396ce615ccc ?? 0;
+    }
+    if ( isdefined( eattacker ) && isdefined( eattacker.armormitigationmultiplier ) )
+    {
+        mit *= eattacker.armormitigationmultiplier;
+    }
+    return mit;
+}
+
+function private cursed_shell_absorb( damage, eattacker, einflictor, smeansofdeath )
+{
+    // Jugger-Nog + Turtle Shell augment: stock plate mitigation; the stock
+    // Turtle Shell block after this hook handles back hits.
+    if ( utility::callsharedfunc( #"zombie_perks", #"has_zombie_perk", "specialty_juggernog" ) && utility::callsharedfunc( #"zombie", #"player_has_augment", #"juggernog_turtle_shell" ) )
+    {
+        return damage * self cursed_plate_mitigation( eattacker );
+    }
+    // Otherwise armor only works as a back shell. Front hits and stock
+    // Turtle Shell bypasses (boss beams, missiles, bleedout) skip armor.
+    if ( !isdefined( eattacker ) || eattacker == self )
+    {
+        return 0;
+    }
+    if ( smeansofdeath == "MOD_BLEEDOUT" && eattacker.var_f968344e6801d0c1 )
+    {
+        return 0;
+    }
+    if ( eattacker.ignore_turtle_shell || ( isdefined( einflictor ) && einflictor.ignore_turtle_shell ) )
+    {
+        return 0;
+    }
+    org = eattacker.turtle_shell_attack_origin ?? eattacker.origin;
+    if ( !isdefined( org ) || org == self.origin )
+    {
+        return 0;
+    }
+    dot = vectordot( vectornormalize( anglestoforward( self.angles ) ), vectornormalize( org - self.origin ) );
+    if ( dot <= 0 )
+    {
+        eattacker.cursed_shell_back_hit = 1;
+        return damage;
+    }
+    return 0;
+}
+
+// Runs inside zm_armor::armor_damage_post(): armor wear for built-in back hits.
+function private cursed_shell_post( damageabsorbed, attacker, smeansofdeath )
+{
+    if ( isdefined( attacker ) && attacker.cursed_shell_back_hit )
+    {
+        attacker.cursed_shell_back_hit = undefined;
+        if ( isdefined( attacker.type ) && attacker.type == "zombie" )
+        {
+            if ( utility::callsharedfunc( #"zombie_perks", #"has_zombie_perk", "specialty_juggernog" ) )
+            {
+                damageabsorbed *= level.cursed_shell_armor_mult_jugg;
+            }
+            else
+            {
+                damageabsorbed *= level.cursed_shell_armor_mult;
+            }
+        }
+    }
+    return damageabsorbed;
 }
