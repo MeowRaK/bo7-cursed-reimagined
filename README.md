@@ -35,11 +35,13 @@ Rarity upgrades are included with each Pack-a-Punch purchase at no additional Sa
 
 ### 2. Mystery Box Overhaul
 
-The Mystery Box has been adjusted to provide more consistent weapon progression.
+The Mystery Box has been adjusted to provide more consistent weapon progression and classic Wonder Weapon access.
 
 - Regular weapons always appear at **Green / Uncommon rarity**, regardless of the round.
 - Blue, Purple, and Gold regular weapon rolls are disabled.
 - Aether Tools are removed from the loot pool.
+- **Map-Exclusive Wonder Weapons:** Each map's exclusive Wonder Weapon can now be obtained from the Mystery Box without completing its quest.
+- **Mister Peeks Mayhem:** The Mystery Box chance of obtaining the Ray Gun or Ray Gun Mark II has been reduced by **20%**.
 - Ultra Legacy Weapons remain available through their separate loot system.
 - **Mystery Box Zombie Builds:** Meleeing the Mystery Box allows the weapon to retain the saved Zombie Build attachments of the player who meleed it, even if another player purchases the weapon.
 
@@ -61,7 +63,7 @@ The Arsenal has been repurposed to provide Ammo Mods instead of weapon rarity up
 - Custom Arsenal interaction prompts are provided through the included Lua script.
 - Wonder Weapons are excluded from the custom Ammo Mod purchase system.
 
-### 5. Classic Armor Progression
+### 5. Classic Armor Progression & Armor Rework v2
 
 Players begin each match **without armor** and must purchase armor upgrades from wall-buy locations.
 
@@ -73,6 +75,19 @@ Players begin each match **without armor** and must purchase armor upgrades from
 | Golden Armor | 25,000 |
 
 Armor upgrades must be purchased progressively.
+
+**Armor Rework v2 (Standard Version)**
+
+Armor protection now depends on Jugger-Nog and its equipped Major Augment.
+
+| Jugger-Nog / Major Augment | Front Hits | Back Hits |
+| --- | --- | --- |
+| **No Jugger-Nog** | No armor protection | Health takes no damage; armor takes 75% of the hit |
+| **Jugger-Nog (No Major Augment)** | No armor protection | Health takes no damage; armor takes 50% of the hit |
+| **Jugger-Nog (Any Major Augment Except Turtle Shell)** | 75% of normal armor protection | Health takes no damage; armor takes 50% of the hit |
+| **Jugger-Nog (Turtle Shell)** | Full normal armor protection | Health takes no damage; armor takes 50% of the hit |
+
+This directional armor rework applies to the **Standard Version only**.
 
 ### 6. Classic Perks & Wunderfizz
 
@@ -130,18 +145,35 @@ The unupgraded **White/Common Knife** has been adjusted to recreate classic BO1�
 - **Equal Attack Damage:** Primary (left-click) and alternative (right-click) attacks deal identical damage.
 - Changes apply exclusively to the **White/Common Knife**. Upgraded rarities and Pack-a-Punched knives retain their normal damage.
 
-### 10. Infinite Wonder Weapon Damage
+### 10. Wonder Weapon Improvements
 
-Map-specific Wonder Weapons deal **effectively infinite damage against normal zombies when upgraded to Pack-a-Punch III**.
+**Map-Specific Wonder Weapons**
 
-- **Pack-a-Punch III is required** to activate infinite damage.
-- Normal zombies can be eliminated in a single successful damaging hit, regardless of the round.
-- The effect remains active at extremely high rounds.
+The following Wonder Weapons receive upgraded damage behavior:
+
+- Necrofluid Gauntlet
+- Nekomancer
+- Jotunn Star
+- Blundergat
+- LGM-1
+- Warden’s Blight
+
+- **Pack-a-Punch III & IV:** One-hit kill against Normal and Armored Zombies, regardless of round.
+- **Pack-a-Punch IV:** Deals **1.7× damage** to Specials, Elites, and HVTs.
+- **Bosses:** Retain their normal damage values.
 - Original weapon effects, animations, and ammunition consumption are preserved.
-- Bosses, Elite enemies, and Special enemies retain their normal damage interactions.
-- **Ray Gun and Ray Gun Mark II are excluded** and retain their original damage behavior.
 
-This ensures fully upgraded map-specific Wonder Weapons remain effective throughout high-round gameplay.
+**LGM-1 (Pack-a-Punch IV)**
+
+- Every shot additionally damages the **10 zombies closest to the saucers**.
+
+**Ray Gun & Ray Gun Mark II**
+
+- **Pack-a-Punch I–III:** Deal **2× damage**.
+- **Pack-a-Punch IV:** Deal **2.5× damage**.
+- **Ray Gun Mark II at Pack-a-Punch IV:** Headshots deal **3.38× damage**.
+
+The Ray Gun and Ray Gun Mark II are excluded from the map-specific Wonder Weapon one-hit-kill system.
 
 ### 11. No Starting GobbleGums
 
@@ -165,13 +197,14 @@ Field Upgrades use a fixed recharge requirement instead of becoming more expensi
 - **40 kills** are required for the standard recharge.
 - The required kill count does not increase after each use.
 
-### 14. Zombie Damage Scaling
+### 14. Player Health & Armor Damage Scaling
 
-Custom zombie attack damage scaling has been disabled.
+Normal Zombie damage dealt directly to player health is fixed at the **round-11 damage level** throughout the match.
 
-- The standard version no longer applies custom zombie attack damage values.
-- The BO3 Health-compatible version leaves damage handling to BO3 Health.
-- Zombie health progression, movement speed, and spawning remain unchanged by this adjustment.
+- **Without armor:** Players are downed in **3 hits without Jugger-Nog** or **5 hits with Jugger-Nog**, regardless of the round.
+- **Armor Damage Scaling:** Normal Zombie damage to armor increases with rounds but is **capped at round 61**.
+- **Specials, Elites, HVTs, and Bosses:** Retain their original damage values.
+- **BO3 Health Compatibility:** The separate BO3 Health-compatible version preserves BO3 Health's player health and damage mechanics.
 
 ### 15. Enemy Health Scaling & Round-85 Cap
 
@@ -182,7 +215,7 @@ Enemy health progression has been adjusted to maintain balanced high-round gamep
 The following enemies have no health cap and continue scaling beyond round 85:
 
 - Zombie
-- Armored Zombie
+- Armored Zombie (boss fights only)
 - Fire Zombie (Agni)
 - Ravager
 - Toxic Zombie
@@ -220,48 +253,32 @@ The Full Power Power-Up has been enhanced to reward players with a random Scores
 
 The reward pool is configured through `level.zfpa_pool = 4`.
 
-### 17. Enhanced Pack-a-Punch IV Wonder Weapon Damage
+### 17. Zombie Movement Speed & Super Sprinters
 
-Pack-a-Punch IV Wonder Weapons now deal **1.75× their original Pack-a-Punch IV damage (75% more damage)**.
+Normal Zombies can move at a maximum speed of **sprinting**, regardless of round.
 
-- Applies to Wonder Weapons upgraded to **Pack-a-Punch IV**.
-- Increases their damage output against enemies not affected by the infinite-damage system.
-- Original weapon effects, animations, and ammunition consumption are preserved.
+- Super Sprinters are removed from regular gameplay, including those caused by round-based speed scaling, the Rampage Inducer, and fog spawns.
+- **Boss Fight Exception:** Original Zombie movement speeds are retained, including Super Sprinters.
 
-This provides an additional damage boost for fully upgraded Wonder Weapons, improving their effectiveness against tougher enemies in high rounds.
+### 18. Armored Zombie Spawn Changes
 
-### 18. Armor Damage Scaling
+- **Normal Rounds:** Armored Zombies no longer spawn and are replaced by regular Zombies.
+- **Boss Fights:** Armored Zombies continue to spawn normally, just like Super Sprinters.
 
-Zombie attack damage against armor now scales with rounds, making armor increasingly important to manage during high-round gameplay.
+### 19. T.E.D.D. Task Reward Adjustments
 
-- **Progressive Armor Damage:** Zombies deal more damage to armor as rounds increase.
-- **Player Health Damage:** Damage dealt directly to player health remains unaffected by this scaling.
-- **Armor Progression:** Armor tiers, purchase costs, and upgrade requirements remain unchanged.
-- **BO3 Health Compatibility:** Armor damage scaling is specific to the standard version; the BO3 Health-compatible version preserves its own health and damage mechanics.
-
-This allows armor to absorb increasing damage at higher rounds without introducing additional scaling to the player's base health damage.
-
-### 19. Enhanced Ray Gun Damage
-
-The Ray Gun now deals **2× its original damage at every Pack-a-Punch tier**, making it more effective throughout high-round gameplay.
-
-- **Pack-a-Punch I:** 2× original damage.
-- **Pack-a-Punch II:** 2× original damage.
-- **Pack-a-Punch III:** 2× original damage.
-- **Pack-a-Punch IV:** 2× original damage.
-- Original weapon effects, animations, and ammunition consumption remain unchanged.
-- The Ray Gun remains excluded from the infinite Wonder Weapon damage system.
+Aether Tool rewards from **T.E.D.D. task chests** have been replaced with **Aether Crystals of the same tier**.
 
 ---
 ## BO3 Health Compatibility
 
 A separate version of Cursed Reimagined is available for players using the **BO3 Health mod**.
 
-This version includes the same core gameplay features as the standard mod, with adjustments to armor and other systems to ensure compatibility with BO3 Health.
+This is a separately maintained version that preserves BO3 Health's player health and damage mechanics. Standard-only armor changes are not included.
 
 - Adjusted armor functionality to prevent conflicts.
 - Compatible with BO3 Health's player health and Juggernog systems.
-- Custom zombie damage scaling is disabled to preserve BO3 Health's damage mechanics.
+- BO3 Health controls player health and damage mechanics instead of the Standard Version's directional armor rework.
 - Retains the classic gameplay modifications wherever compatible.
 
 **Download:**
@@ -274,7 +291,7 @@ https://github.com/MeowRaK/bo7-cursed-reimagined-bo3-health
 
 ## Credits
 
-- **MeowRaK** — Cursed Reimagined development, gameplay modifications, feature integration, enemy health scaling adjustments, armor damage scaling, and Pack-a-Punch IV Wonder Weapon damage enhancements.
+- **MeowRaK** — Cursed Reimagined development, gameplay modifications, feature integration, enemy health scaling adjustments, armor and movement reworks, and Wonder Weapon enhancements.
 - **aspect.of.autumn** (Discord: `@aspect.of.autumn`) — Original Classic Perks mod, including classic perk pricing and Wunderfizz functionality.
 - **@SirKazuto** — Original enemy health scaling system, modified and integrated into Cursed Reimagined.
 - **@tomwragg13** — Original Enhanced Full Power mod, providing random Scorestreak rewards.
