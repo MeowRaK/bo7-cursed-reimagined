@@ -7,12 +7,14 @@
 //  - Pack-a-Punch: max level IV; the PaP level sets the weapon's rarity
 //    (I blue, II purple, III legendary, IV ultra).
 //  - Armor: no starting armor (a saved-round load keeps its saved armor);
-//    built-in Turtle Shell (armor only absorbs zombie back hits unless the
-//    player has Jugger-Nog + the Turtle Shell augment); armor damage follows
+//    built-in Turtle Shell (armor only absorbs zombie back hits; front hits
+//    get armor only with Jugger-Nog + a major augment: x0.75 of stock, or
+//    full stock with the Turtle Shell augment); armor damage follows
 //    the real round up to level.cursed_armor_cap_round.
 //  - Zombie attack damage: normal zombies always use the round-11 tier;
 //    other enemies use it in rounds 1-10 only.
 //  - Zombie speed: no super sprinters outside boss fights (capped to sprint).
+//  - No armored zombies outside boss fights (spawned as plain zombies).
 //  - Starting loadout: the 1911 and the knife use each player's saved
 //    Zombie Build; no GobbleGums are pre-loaded.
 //  - Classic damage: White 1911 uses BO1 hit-location damage; White knife
@@ -61,6 +63,7 @@
 #using scripts\mp\wallbuy;
 #using scripts\mp\weaponmetadata;
 #using scripts\mp\zm\systems\zm_armor;
+#using scripts\mp\zm\systems\zm_round_spawning;
 #using scripts\mp\zm\zm_utility;
 
 #namespace bo7_cursed_fresh;
@@ -124,6 +127,9 @@ function init()
     level.cursed_shell_armor_mult = 0.75;
     // Same, with Jugger-Nog but without the Turtle Shell augment (augment = stock 0.5).
     level.cursed_shell_armor_mult_jugg = 0.5;
+    // Front-hit armor with Jugger-Nog + a major augment other than Turtle
+    // Shell: stock plate mitigation x this (0.75 = 25% less protection).
+    level.cursed_front_armor_mult = 0.75;
     level thread install_early_round_damage_tier();
 
     // Map Wonder Weapons one-hit normal zombies at PaP III+ (see section).
@@ -2865,32 +2871,58 @@ function private cursed_plate_mitigation( eattacker )
     return mit;
 }
 
+// Jugger-Nog major augments other than Turtle Shell (checked via the
+// augment bundle's ismajor flag, so minors never count).
+function private cursed_has_jugg_major()
+{
+    foreach ( name in [ #"juggernog_thicker_plates", #"juggernog_reactive_armor", #"juggernog_juggernaut", #"juggernog_retaliation", #"juggernog_iron_core", #"juggernog_shielded", #"juggernog_perfect_counter" ] )
+    {
+        b = level.zombie_augments[ name ];
+        if ( isdefined( b ) && istrue( b.ismajor ) && utility::callsharedfunc( #"zombie", #"player_has_augment", name ) )
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+// Armor table:
+//   No Jugg / Jugg no major      : front 0,          back 100% absorbed (wear x0.75 / x0.5)
+//   Jugg + other major augment   : front stock x0.75, back 100% absorbed (wear x0.5)
+//   Jugg + Turtle Shell          : stock (front stock, back 100% absorbed, wear x0.5)
 function private cursed_shell_absorb( damage, eattacker, einflictor, smeansofdeath )
 {
+    jugg = utility::callsharedfunc( #"zombie_perks", #"has_zombie_perk", "specialty_juggernog" );
     // Jugger-Nog + Turtle Shell augment: stock plate mitigation; the stock
     // Turtle Shell block after this hook handles back hits.
-    if ( utility::callsharedfunc( #"zombie_perks", #"has_zombie_perk", "specialty_juggernog" ) && utility::callsharedfunc( #"zombie", #"player_has_augment", #"juggernog_turtle_shell" ) )
+    if ( jugg && utility::callsharedfunc( #"zombie", #"player_has_augment", #"juggernog_turtle_shell" ) )
     {
         return damage * self cursed_plate_mitigation( eattacker );
     }
-    // Otherwise armor only works as a back shell. Front hits and stock
-    // Turtle Shell bypasses (boss beams, missiles, bleedout) skip armor.
+    // Front-hit share: 0, or stock x level.cursed_front_armor_mult with a
+    // Jugger-Nog major augment. Also used for Turtle Shell bypasses
+    // (boss beams, missiles, bleedout, self damage).
+    front = 0;
+    if ( jugg && self cursed_has_jugg_major() )
+    {
+        front = damage * self cursed_plate_mitigation( eattacker ) * level.cursed_front_armor_mult;
+    }
     if ( !isdefined( eattacker ) || eattacker == self )
     {
-        return 0;
+        return front;
     }
     if ( smeansofdeath == "MOD_BLEEDOUT" && eattacker.var_f968344e6801d0c1 )
     {
-        return 0;
+        return front;
     }
     if ( eattacker.ignore_turtle_shell || ( isdefined( einflictor ) && einflictor.ignore_turtle_shell ) )
     {
-        return 0;
+        return front;
     }
     org = eattacker.turtle_shell_attack_origin ?? eattacker.origin;
     if ( !isdefined( org ) || org == self.origin )
     {
-        return 0;
+        return front;
     }
     dot = vectordot( vectornormalize( anglestoforward( self.angles ) ), vectornormalize( org - self.origin ) );
     if ( dot <= 0 )
@@ -2898,7 +2930,7 @@ function private cursed_shell_absorb( damage, eattacker, einflictor, smeansofdea
         eattacker.cursed_shell_back_hit = 1;
         return damage;
     }
-    return 0;
+    return front;
 }
 
 // Runs inside zm_armor::armor_damage_post(): armor wear for built-in back hits.
@@ -3044,6 +3076,11 @@ function private no_super_sprinters()
     while ( true )
     {
         boss = cursed_boss_fight_active();
+        // No armored zombies outside boss fights (round spawn override).
+        if ( !( level.cursed_armored_state === boss ) && cursed_set_armored_override( !boss ) )
+        {
+            level.cursed_armored_state = boss;
+        }
         foreach ( zombie in getaiarray( zm_utility::get_zombie_team() ) )
         {
             if ( !isalive( zombie ) || !( zombie.aicategory === "normal" ) )
@@ -3064,6 +3101,25 @@ function private no_super_sprinters()
         }
         wait 0.2;
     }
+}
+
+// Round spawns of armored types become plain zombie_base while on is true.
+// Returns 0 until round spawning is initialised, so the caller retries.
+function private cursed_set_armored_override( on )
+{
+    if ( !isdefined( level.var_a009ab14ee0d3223 ) )
+    {
+        return 0;
+    }
+    foreach ( t in [ "zombie_base_armored_light", "zombie_base_armored_heavy", "zombie_base_armored_agni" ] )
+    {
+        zm_round_spawning::clear_aitype_spawn_override( t );
+        if ( on )
+        {
+            zm_round_spawning::register_aitype_spawn_override( t, "zombie_base" );
+        }
+    }
+    return 1;
 }
 
 function private cursed_boss_fight_active()
