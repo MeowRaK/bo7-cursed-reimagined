@@ -7,9 +7,10 @@
 //  - Pack-a-Punch: max level IV; the PaP level sets the weapon's rarity
 //    (I blue, II purple, III legendary, IV ultra).
 //  - Armor: no starting armor (a saved-round load keeps its saved armor);
-//    built-in Turtle Shell (armor only absorbs zombie back hits; front hits
-//    get armor only with Jugger-Nog + a major augment: x0.75 of stock, or
-//    full stock with the Turtle Shell augment); armor damage follows
+//    normal zombies (boss fights included): built-in Turtle Shell (back
+//    hits fully absorbed); front hits: no armor without a Jugger-Nog major
+//    augment, stock x0.70 with any other major, x0.85 with Turtle Shell;
+//    specials / elites / bosses use stock BO7 armor; armor damage follows
 //    the real round up to level.cursed_armor_cap_round.
 //  - Zombie attack damage: normal zombies always use the round-11 tier;
 //    other enemies use it in rounds 1-10 only.
@@ -127,9 +128,13 @@ function init()
     level.cursed_shell_armor_mult = 0.75;
     // Same, with Jugger-Nog but without the Turtle Shell augment (augment = stock 0.5).
     level.cursed_shell_armor_mult_jugg = 0.5;
-    // Front-hit armor with Jugger-Nog + a major augment other than Turtle
-    // Shell: stock plate mitigation x this (0.75 = 25% less protection).
-    level.cursed_front_armor_mult = 0.75;
+    // Front-hit armor from normal zombies, as a fraction of stock plate
+    // mitigation: Jugger-Nog + Turtle Shell / + any other major augment.
+    level.cursed_shell_front_mult = 0.85;
+    level.cursed_front_armor_mult = 0.70;
+    // Hard armor (Relic Rebalance's Dancing Arnie sets level.rr_arnie_hard_armor):
+    // Turtle Shell front = stock x this, other majors = no front armor.
+    level.cursed_arnie_shell_front_mult = 0.5;
     level thread install_early_round_damage_tier();
 
     // Map Wonder Weapons one-hit normal zombies at PaP III+ (see section).
@@ -321,7 +326,8 @@ function private on_player_spawned( params )
     self thread classic_knife_on_spawn();
 
     // Pack Mule ammo on legacy (Ultra) box weapons - see section at the end.
-    self thread legacy_pack_mule_watch();
+    // Disabled: replaced by zm_pack_mule_legacy_only.gsc (built-in, legacy only).
+    // self thread legacy_pack_mule_watch();
 }
 
 // Ends the saved-armor window once round logic has started.
@@ -2520,9 +2526,10 @@ function private legacy_pack_mule_watch()
     self endon( #"disconnect" );
     level endon( #"game_ended" );
     self.cursed_pm_last = [];
+    self.cursed_pm_prev = [];
     while ( supported_mode() )
     {
-        wait 0.25;
+        waitframe();
         if ( !isalive( self ) )
         {
             continue;
@@ -2536,7 +2543,11 @@ function private legacy_pack_mule_watch()
             stock = self getweaponammostock( w );
             last = self.cursed_pm_last[ w.basename ];
             self.cursed_pm_last[ w.basename ] = stock;
-            if ( isdefined( last ) && stock <= last )
+            // New weapon object (pickup / PaP) counts as a refill even when
+            // the reserve number did not go up.
+            changed = !isdefined( self.cursed_pm_prev[ w.basename ] ) || self.cursed_pm_prev[ w.basename ] != w;
+            self.cursed_pm_prev[ w.basename ] = w;
+            if ( !changed && isdefined( last ) && stock <= last )
             {
                 continue; // no refill
             }
@@ -2578,8 +2589,9 @@ function private legacy_pack_mule_watch()
 //  - Only the damage number is returned: effects, animations, ammo, PaP,
 //    kill credit and points stay stock; no extra damage event is created.
 //  - idamage <= 0 is left alone (Necrofluid returns 0 past its max enemy
-//    penetration on purpose). MOD_MELEE (weapon bash / gauntlet punch) stays
-//    stock. bskipexposedhead keeps the head-modifier divide from lowering
+//    penetration on purpose). MOD_MELEE (weapon bash) stays stock, except
+//    Jotunn Star punches (sat_ww_locust_zm), which follow the rule.
+//    bskipexposedhead keeps the head-modifier divide from lowering
 //    the value. Normal zombies have no max-health damage cap (< 1).
 //  - Only normal, unarmored zombies: aicategory "normal", subclass without
 //    "armored", no armor health, no damage shield. Specials, elites, HVTs and
@@ -2652,7 +2664,10 @@ function private ww_instakill_damage( dmg_struct )
     {
         return -1;
     }
-    if ( dmg_struct.smeansofdeath === "MOD_MELEE" )
+    // MOD_MELEE stays stock (weapon bash), except the Jotunn Star: its
+    // gauntlet punches ARE its main attack (weap_locustww.gsc: swings
+    // dodamage 1750 / finisher 10000 as MOD_MELEE with sat_ww_locust_zm).
+    if ( dmg_struct.smeansofdeath === "MOD_MELEE" && !( isdefined( dmg_struct.sweapon ) && dmg_struct.sweapon.basename == "sat_ww_locust_zm" ) )
     {
         return -1;
     }
@@ -2860,7 +2875,7 @@ function private cursed_plate_mitigation( eattacker )
     {
         return 0;
     }
-    if ( utility::callsharedfunc( #"zombie", #"player_has_augment", #"juggernog_thicker_plates" ) )
+    if ( utility::callsharedfunc( #"zombie_perks", #"has_zombie_perk", "specialty_juggernog" ) && utility::callsharedfunc( #"zombie", #"player_has_augment", #"juggernog_thicker_plates" ) )
     {
         mit += level.zombie_augments[ #"juggernog_thicker_plates" ].var_fcd4c396ce615ccc ?? 0;
     }
@@ -2869,6 +2884,28 @@ function private cursed_plate_mitigation( eattacker )
         mit *= eattacker.armormitigationmultiplier;
     }
     return mit;
+}
+
+// Stock BO7 armor (no rework) for every attacker that is not a normal zombie
+// (specials, elites, HVTs, bosses), including projectiles / entities they
+// own. Applies the same in boss fights; normal zombies always use the rework.
+function private cursed_hard_armor()
+{
+    return istrue( level.rr_arnie_hard_armor );
+}
+
+function private cursed_armor_stock_hit( eattacker )
+{
+    if ( !isdefined( eattacker ) || eattacker == self )
+    {
+        return 0;
+    }
+    category = eattacker.aicategory;
+    if ( !isdefined( category ) && isdefined( eattacker.owner ) )
+    {
+        category = eattacker.owner.aicategory;
+    }
+    return isdefined( category ) && category != "normal";
 }
 
 // Jugger-Nog major augments other than Turtle Shell (checked via the
@@ -2886,24 +2923,32 @@ function private cursed_has_jugg_major()
     return 0;
 }
 
-// Armor table:
-//   No Jugg / Jugg no major      : front 0,          back 100% absorbed (wear x0.75 / x0.5)
-//   Jugg + other major augment   : front stock x0.75, back 100% absorbed (wear x0.5)
-//   Jugg + Turtle Shell          : stock (front stock, back 100% absorbed, wear x0.5)
+// Armor table (normal zombies outside boss fights; everything else = stock):
+//   No Jugg / Jugg, no major      : front 0,          back 100% (wear x0.75 / x0.5)
+//   Jugg + other major augment    : front stock x0.70, back 100% (wear x0.5)
+//   Jugg + Turtle Shell           : front stock x0.85, back stock Turtle Shell
 function private cursed_shell_absorb( damage, eattacker, einflictor, smeansofdeath )
 {
-    jugg = utility::callsharedfunc( #"zombie_perks", #"has_zombie_perk", "specialty_juggernog" );
-    // Jugger-Nog + Turtle Shell augment: stock plate mitigation; the stock
-    // Turtle Shell block after this hook handles back hits.
-    if ( jugg && utility::callsharedfunc( #"zombie", #"player_has_augment", #"juggernog_turtle_shell" ) )
+    // Stock: plate mitigation here, stock Turtle Shell block after this hook.
+    if ( self cursed_armor_stock_hit( eattacker ) )
     {
         return damage * self cursed_plate_mitigation( eattacker );
     }
-    // Front-hit share: 0, or stock x level.cursed_front_armor_mult with a
-    // Jugger-Nog major augment. Also used for Turtle Shell bypasses
-    // (boss beams, missiles, bleedout, self damage).
+    jugg = utility::callsharedfunc( #"zombie_perks", #"has_zombie_perk", "specialty_juggernog" );
+    // Jugger-Nog + Turtle Shell: reduced front share; the stock Turtle Shell
+    // block after this hook handles back hits.
+    if ( jugg && utility::callsharedfunc( #"zombie", #"player_has_augment", #"juggernog_turtle_shell" ) )
+    {
+        mult = level.cursed_shell_front_mult;
+        if ( cursed_hard_armor() )
+        {
+            mult = level.cursed_arnie_shell_front_mult;
+        }
+        return damage * self cursed_plate_mitigation( eattacker ) * mult;
+    }
+    // Front share (also used for Turtle Shell bypasses: bleedout, self damage).
     front = 0;
-    if ( jugg && self cursed_has_jugg_major() )
+    if ( jugg && !cursed_hard_armor() && self cursed_has_jugg_major() )
     {
         front = damage * self cursed_plate_mitigation( eattacker ) * level.cursed_front_armor_mult;
     }
